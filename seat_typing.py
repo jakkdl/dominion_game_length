@@ -27,12 +27,15 @@ class Result:
     game_count: int
     division: str
 
-    def __str__(self):
+    def __str__(self) -> str:
         return ','.join((str(x) for x in (*self.players,
                 self.start_time.isoformat(timespec='minutes'),
                 self.duration,
                 self.game_count,
                 self.division)))
+
+    def contains(self, player: str) -> bool:
+        return player.lower() in map(lambda x: x.lower(), self.players)
 
 # mypy-annotation-for-classmethod-returning-instance
 # https://stackoverflow.com/questions/44640479/

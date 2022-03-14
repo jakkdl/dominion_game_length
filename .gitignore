@@ -1,0 +1,5 @@
+discord_token
+__pycache__
+env
+*.pickle
+*.csv

@@ -5,8 +5,6 @@ import datetime
 
 import discord  # type: ignore
 
-#from discord_game import DiscordGame
-
 import discord_commands as commands
 
 from seat_typing import SeatException, SeatChannel, DiscordUser
@@ -19,7 +17,6 @@ class DiscordBotException(SeatException):
 class DiscordBot(discord.Client):  # type: ignore
     def __init__(self) -> None:
         super().__init__()
-        self._users: Dict[discord.user, DiscordUser] = {}
 
         self.command_list: List[commands.CommandType] = []
         self.command_dict: Dict[str, List[commands.CommandType]] = {}
@@ -33,6 +30,7 @@ class DiscordBot(discord.Client):  # type: ignore
             commands.Commands(self.command_list),
             commands.Source(),
 
+            commands.PlayerStats(),
             commands.PrintMatches(),
             commands.Pickle(),
 

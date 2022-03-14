@@ -14,6 +14,7 @@ import discord  # type: ignore
 
 import seat_strings
 import seat_typing
+import game_statistics
 from seat_typing import GameState
 from database import database
 
@@ -37,14 +38,16 @@ class CommandException(seat_typing.SeatException):
 
 
 class ArgType:
-    def __init__(self, arg_type: type,
+    def __init__(self, arg_type: type, #pylint: disable=too-many-arguments
                  optional: bool = False,
                  defaultvalue: Any = None,
-                 name: Optional[str] = None) -> None:
+                 name: Optional[str] = None,
+                 multi_word: bool = False) -> None:
         self.arg_type: type = arg_type
         self.optional: bool = optional
         self.defaultvalue: Any = defaultvalue
         self.name = name
+        self.multi_word = multi_word
 
     def __str__(self) -> str:
         if self.name is not None:
@@ -63,7 +66,7 @@ class ArgType:
         if issubclass(self.arg_type, seat_typing.Findable):
             return self.arg_type.find(arg, **kwargs)
 
-        # Gives "Too many arguments for "object" without cast
+        # Gives 'Too many arguments for "object"' without cast
         return typing.cast(type, self.arg_type)(arg)
 
 
@@ -86,8 +89,13 @@ class CommandMessage:
                           arg_types: Sequence[ArgType],
                           **kwargs: Any,
                           ) -> typing.List[typing.Any]:
+
         if len(self.args) > len(arg_types):
-            raise CommandException(self, 'Too many arguments.')
+            if arg_types and arg_types[-1].multi_word:
+                multi_index = len(arg_types)-1
+                self.args = self.args[:multi_index] + [' '.join(self.args[multi_index:])]
+            else:
+                raise CommandException(self, 'Too many arguments.')
 
         if len(self.args) < len([x for x in arg_types if not x.optional]):
             raise CommandException(self, 'Too few arguments.')
@@ -333,6 +341,25 @@ class Source(CommandType):
         await command.channel.send(
             'https://github.com/h00701350103/seat_exchange')
 
+class PlayerStats(CommandType):
+    def __init__(self) -> None:
+        help_text = 'Prints the stats of a specific player.'
+        requirements = Requirements(private_only=True)
+        args = (ArgType(str, name='player', multi_word=True),
+                )
+        super().__init__('player', 'playerstats',
+                         help_text=help_text,
+                         requirements=requirements,
+                         args=args,
+                         tag=CommandTag.INFO)
+
+    async def _do_execute(self, command: CommandMessage) -> None:
+        player: str = command.convert_arguments(self.args)[0]
+
+        await command.channel.send(
+                game_statistics.player_stats(player,
+                    database.flat_matches))
+
 def parse_matches_message(message: discord.message, verbose: bool = False) -> int:
     if verbose:
         print(f'parsing matches message: {message.id}')
@@ -374,6 +401,9 @@ def parse_results_message(message: discord.message, verbose: bool = False) -> bo
     if verbose:
         print(f'parsing results message: {message.id}')
     if str(message.author) != 'League Results#0000':
+        return False
+    if not message.embeds:
+        print(f'No embeds in message {message.id}: {message.created_at}')
         return False
     embed = message.embeds[0]
     division = embed.title.split(' ')[-1]

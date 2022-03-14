@@ -1,5 +1,6 @@
 import datetime
 import pickle
+import os.path
 from typing import List, Dict
 from seat_typing import Result, Players
 
@@ -10,6 +11,8 @@ class Database:
         self.pending_matches: Dict[Players, List[datetime.datetime]] = {}
 
         self.matches: Dict[Players, List[Result]] = {}
+
+        self.flat_matches : List[Result]= []
 
     def add_match(self, players: Players,
             start: datetime.datetime,
@@ -73,10 +76,15 @@ class Database:
                     print(f'About to add duplicate match between {players} at {start_time}!')
                     return False
 
+        avg = duration/games
+        if avg < 300 or avg > 7200:
+            print(f'Extreme average {avg} in {games}, skipping match between {players}')
 
-        self.matches[players].append(
-                Result(players, start_time, duration, games, division))
-        print(f'Added match between {players}')
+        result = Result(players, start_time, duration, games, division)
+        self.matches[players].append(result)
+        self.flat_matches.append(result)
+        if verbose:
+            print(f'Added match between {players}')
         return True
 
     def print_matches(self, data: str = 'all') -> None:
@@ -101,12 +109,17 @@ class Database:
         if data in ('all', 'matches'):
             with open('matches.pickle', 'wb') as file:
                 pickle.dump(self.matches, file)
+            with open('flat_matches.pickle', 'wb') as file:
+                pickle.dump(self.flat_matches, file)
 
     def load(self, data: str = 'all') -> None:
         if data in ('all', 'pending'):
             with open('pending_matches.pickle', 'rb') as file:
                 self.pending_matches = pickle.load(file)
         if data in ('all', 'matches'):
+            if os.path.isfile('flat_matches.pickle'):
+                with open('flat_matches.pickle', 'rb') as file:
+                    self.flat_matches = pickle.load(file)
             with open('matches.pickle', 'rb') as file:
                 self.matches = pickle.load(file)
 
